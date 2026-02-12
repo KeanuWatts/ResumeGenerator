@@ -72,8 +72,9 @@ async function request<T>(
     throw new Error("Session expired. Please log in again.");
   }
 
+  const text = await res.text();
+
   if (!res.ok) {
-    const text = await res.text();
     let msg = `API ${res.status}: ${res.statusText}`;
     try {
       const j = JSON.parse(text);
@@ -84,7 +85,13 @@ async function request<T>(
     throw new Error(msg);
   }
 
-  return res.json();
+  try {
+    return text ? (JSON.parse(text) as T) : ({} as T);
+  } catch {
+    throw new Error(
+      "Server returned non-JSON. Is the API URL correct? Set NEXT_PUBLIC_API_URL to your API (e.g. http://localhost:4000) and rebuild."
+    );
+  }
 }
 
 // Auth

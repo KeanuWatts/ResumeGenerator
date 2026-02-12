@@ -1339,7 +1339,7 @@ JWT_SECRET=your-super-secret-key
 JWT_EXPIRES_IN=15m
 REFRESH_TOKEN_SECRET=your-refresh-secret
 REFRESH_TOKEN_EXPIRES_IN=7d
-
+****
 # AI Services (required; no local substitute)
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_MODEL=deepseek-chat

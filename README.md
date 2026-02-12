@@ -9,28 +9,31 @@ Node.js REST API + Next.js web UI for generating tailored resumes and cover lett
 
 ## Quick start (full stack with Docker)
 
-1. **Clone and start services**
+1. **Start Docker Desktop** (or ensure the Docker daemon is running).
+
+2. **Start the core stack** (API, Web, MongoDB, RabbitMQ, MinIO — no Chromium image):
    ```bash
    docker compose up -d
    ```
-   Brings up: MongoDB, RabbitMQ, MinIO, Reactive Resume (with Postgres + printer), API, and Web UI.
+   Web UI: http://localhost:3001 · API: http://localhost:4000
 
-2. **Provide DeepSeek API key** (required for AI: job extract, tailored summary, cover letter, bullet enhancement)
+3. **Optional — enable PDF export** (Reactive Resume + Chromium; pulls a large image):
+   ```bash
+   docker compose --profile pdf up -d
+   ```
+   Adds: Postgres for RR, browserless/chromium (printer), Reactive Resume at http://localhost:3002.
+
+4. **Provide DeepSeek API key** (required for AI: job extract, tailored summary, cover letter, bullet enhancement)
    - Set `DEEPSEEK_API_KEY` when starting:
      ```bash
      DEEPSEEK_API_KEY=sk-your-key docker compose up -d
      ```
-   - Or add to a `.env` file in the project root and run `docker compose up -d` (Compose loads `.env` by default).
+   - Or add to a `.env` file in the project root (Compose loads `.env` by default).
 
-3. **Open the app**
-   - Web UI: http://localhost:3001  
-   - API: http://localhost:4000  
-   - Reactive Resume (local dev): http://localhost:3002  
-
-4. **Test the flow**
+5. **Test the flow**
    - Register a user at http://localhost:3001/register
    - Log in at http://localhost:3001/login
-   - Create a resume, add a job description, run extract (needs DeepSeek key), then generate resume/cover letter and export PDF.
+   - Create a resume, add a job description, run extract (needs DeepSeek key), then generate resume/cover letter. Export PDF works only if you started with `--profile pdf`.
 
 ## Running locally (without Docker)
 

@@ -1,4 +1,5 @@
-# Phase 0: web. Phase 1: + api, mongodb. Phase 4: + rabbitmq, minio, reactive-resume (postgres + printer).
+# Default: api, web, mongodb, rabbitmq, minio (no Chromium).
+# Full stack with PDF export: docker compose --profile pdf up -d
 services:
   mongodb:
     image: mongo:7
@@ -31,6 +32,7 @@ services:
       - minio_data:/data
 
   postgres_rr:
+    profiles: ["pdf"]
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: reactive_resume
@@ -45,6 +47,7 @@ services:
       retries: 5
 
   printer:
+    profiles: ["pdf"]
     image: ghcr.io/browserless/chromium:latest
     environment:
       QUEUED: 10
@@ -57,6 +60,7 @@ services:
       retries: 3
 
   reactive-resume:
+    profiles: ["pdf"]
     image: ghcr.io/amruthpillai/reactive-resume:latest
     environment:
       APP_URL: http://localhost:3002
@@ -100,15 +104,20 @@ services:
       - AWS_S3_BUCKET=resumegen-exports
       - AWS_REGION=us-east-1
     depends_on:
-      mongodb: {}
+      mongodb:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
-      minio: {}
+      minio:
+        condition: service_started
 
   web:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_USE_STUB_API: "false"
     ports:
       - "3001:3000"
     environment:
