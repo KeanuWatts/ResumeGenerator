@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build / output
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs and debug
+npm-debug.log*
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Kubernetes secrets (do not commit real secret.yaml)
+k8s/secret.yaml

@@ -1,0 +1,121 @@
+# Phase 0: web. Phase 1: + api, mongodb. Phase 4: + rabbitmq, minio, reactive-resume (postgres + printer).
+services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+
+  postgres_rr:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reactive_resume
+      POSTGRES_USER: rr
+      POSTGRES_PASSWORD: ${RR_POSTGRES_PASSWORD:-rr-secret}
+    volumes:
+      - postgres_rr_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rr -d reactive_resume"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  printer:
+    image: ghcr.io/browserless/chromium:latest
+    environment:
+      QUEUED: 10
+      HEALTH: "true"
+      CONCURRENT: 5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  reactive-resume:
+    image: ghcr.io/amruthpillai/reactive-resume:latest
+    environment:
+      APP_URL: http://localhost:3002
+      PRINTER_APP_URL: http://reactive-resume:3000
+      DATABASE_URL: postgresql://rr:${RR_POSTGRES_PASSWORD:-rr-secret}@postgres_rr:5432/reactive_resume
+      PRINTER_ENDPOINT: http://printer:3000
+      AUTH_SECRET: ${RR_AUTH_SECRET:-change-me-rr-auth-secret-32chars}
+    ports:
+      - "3002:3000"
+    depends_on:
+      postgres_rr:
+        condition: service_healthy
+      printer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=mongodb://mongodb:27017/resumegen
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET:-change-me-in-production}
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=200
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RXRESUME_BASE_URL=http://reactive-resume:3000
+      - RXRESUME_API_KEY=${RXRESUME_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - AWS_ENDPOINT=http://minio:9000
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - AWS_S3_BUCKET=resumegen-exports
+      - AWS_REGION=us-east-1
+    depends_on:
+      mongodb: {}
+      rabbitmq:
+        condition: service_healthy
+      minio: {}
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+      - NEXT_PUBLIC_USE_STUB_API=false
+
+volumes:
+  mongodb_data: {}
+  minio_data: {}
+  postgres_rr_data: {}

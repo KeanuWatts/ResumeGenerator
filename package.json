@@ -1,0 +1,13 @@
+{
+  "name": "resumegen",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "cd web && npm run build",
+    "test": "cd api && npm test",
+    "test:phase0": "cd web && npm run test",
+    "test:phase1": "cd api && npm test",
+    "test:phase0:docker": "docker compose up -d web && cd web && BASE_URL=http://localhost:3000 node tests/wait-for-server.mjs && node tests/smoke-node.mjs",
+    "docker:down": "docker compose down"
+  }
+}
