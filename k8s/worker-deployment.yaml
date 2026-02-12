@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resumegen-worker
+  namespace: resumegen
+  labels:
+    app: resumegen-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resumegen-worker
+  template:
+    metadata:
+      labels:
+        app: resumegen-worker
+    spec:
+      containers:
+        - name: worker
+          image: resumegen-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "src/worker/export-worker.js"]
+          envFrom:
+            - configMapRef:
+                name: resumegen-config
+            - secretRef:
+                name: resumegen-secret

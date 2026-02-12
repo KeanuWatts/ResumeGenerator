@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resumegen-api
+  namespace: resumegen
+  labels:
+    app: resumegen-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resumegen-api
+  template:
+    metadata:
+      labels:
+        app: resumegen-api
+    spec:
+      containers:
+        - name: api
+          image: resumegen-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: resumegen-config
+            - secretRef:
+                name: resumegen-secret
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resumegen-api
+  namespace: resumegen
+spec:
+  selector:
+    app: resumegen-api
+  ports:
+    - port: 4000
+      targetPort: 4000
+      name: http

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resumegen-web-config
+  namespace: resumegen
+data:
+  NEXT_PUBLIC_API_URL: "http://resumegen-api.resumegen.svc.cluster.local:4000"
+  NEXT_PUBLIC_USE_STUB_API: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resumegen-web
+  namespace: resumegen
+  labels:
+    app: resumegen-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resumegen-web
+  template:
+    metadata:
+      labels:
+        app: resumegen-web
+    spec:
+      containers:
+        - name: web
+          image: resumegen-web:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: resumegen-web-config
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resumegen-web
+  namespace: resumegen
+spec:
+  selector:
+    app: resumegen-web
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http

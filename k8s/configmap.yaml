@@ -1,0 +1,16 @@
+# Non-secret configuration. Override values per environment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resumegen-config
+  namespace: resumegen
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  API_VERSION: "v1"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "200"
+  MONGODB_URI: "mongodb://mongodb.resumegen.svc.cluster.local:27017/resumegen"
+  RABBITMQ_URL: "amqp://guest:guest@rabbitmq.resumegen.svc.cluster.local:5672"
+  RXRESUME_BASE_URL: "http://reactive-resume.default.svc.cluster.local:3000"
+  AWS_S3_BUCKET: "resumegen-exports"
+  AWS_REGION: "us-east-1"
