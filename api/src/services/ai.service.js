@@ -1,12 +1,45 @@
 /**
- * AI Service - DeepSeek integration.
+ * AI Service - DeepSeek (cloud or local via Ollama) integration.
  * Ported from ExtractJobReport.gs (extractJobFields).
  */
 
 const DS_ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
 const DS_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 const DS_TEMPERATURE = parseFloat(process.env.DEEPSEEK_TEMPERATURE || "0.3", 10);
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "deepseek-llm";
 const MAX_INPUT_CHARS = 50000;
+
+const AI_NOT_CONFIGURED = "AI service not configured";
+
+/**
+ * True if either DeepSeek API key or Ollama base URL is set.
+ */
+export function isAiConfigured() {
+  return !!(process.env.DEEPSEEK_API_KEY || process.env.OLLAMA_BASE_URL);
+}
+
+function getAiConfig() {
+  const ollamaBase = process.env.OLLAMA_BASE_URL?.trim();
+  if (ollamaBase) {
+    const base = ollamaBase.replace(/\/$/, "");
+    return {
+      url: `${base}/v1/chat/completions`,
+      headers: { "Content-Type": "application/json" },
+      model: OLLAMA_MODEL,
+      useOllama: true,
+    };
+  }
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (apiKey) {
+    return {
+      url: DS_ENDPOINT,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      model: DS_MODEL,
+      useOllama: false,
+    };
+  }
+  return null;
+}
 
 /**
  * @param {string} jobText - Raw job description text
@@ -20,8 +53,8 @@ export async function extractJobFields(jobText, fetchFn = fetch) {
     throw new Error(`Job text too long (${text.length}). Limit is ${MAX_INPUT_CHARS} characters.`);
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured");
+  const config = getAiConfig();
+  if (!config) throw new Error(AI_NOT_CONFIGURED);
 
   const system =
     "You are a precise information extractor for job descriptions. " +
@@ -32,27 +65,24 @@ export async function extractJobFields(jobText, fetchFn = fetch) {
   const user = "Extract fields from this job description:\n\n" + text;
 
   const payload = {
-    model: DS_MODEL,
+    model: config.model,
     temperature: DS_TEMPERATURE,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    response_format: { type: "json_object" },
   };
+  if (!config.useOllama) payload.response_format = { type: "json_object" };
 
-  const res = await fetchFn(DS_ENDPOINT, {
+  const res = await fetchFn(config.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: config.headers,
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`DeepSeek HTTP ${res.status}: ${body}`);
+    throw new Error(`AI HTTP ${res.status}: ${body}`);
   }
 
   const data = await res.json();
@@ -61,7 +91,7 @@ export async function extractJobFields(jobText, fetchFn = fetch) {
   try {
     obj = typeof raw === "string" ? JSON.parse(raw) : raw;
   } catch (e) {
-    throw new Error("DeepSeek returned non-JSON content");
+    throw new Error("AI returned non-JSON content");
   }
 
   return {
@@ -84,8 +114,8 @@ export async function extractJobFields(jobText, fetchFn = fetch) {
  * @returns {Promise<string>}
  */
 export async function tailorSummary(baseSummary, jobDescriptionText, fetchFn = fetch) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return baseSummary || "";
+  const config = getAiConfig();
+  if (!config) return baseSummary || "";
 
   const system =
     "You are a resume summary rewriter. Rewrite the candidate's professional summary in 2-4 sentences to align with the job description. " +
@@ -93,7 +123,7 @@ export async function tailorSummary(baseSummary, jobDescriptionText, fetchFn = f
   const user = `Job description:\n${(jobDescriptionText || "").slice(0, 8000)}\n\nCandidate summary to tailor:\n${baseSummary || ""}`;
 
   const payload = {
-    model: DS_MODEL,
+    model: config.model,
     temperature: Math.min(DS_TEMPERATURE, 0.5),
     messages: [
       { role: "system", content: system },
@@ -101,18 +131,15 @@ export async function tailorSummary(baseSummary, jobDescriptionText, fetchFn = f
     ],
   };
 
-  const res = await fetchFn(DS_ENDPOINT, {
+  const res = await fetchFn(config.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: config.headers,
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`DeepSeek HTTP ${res.status}: ${body}`);
+    throw new Error(`AI HTTP ${res.status}: ${body}`);
   }
 
   const data = await res.json();
@@ -128,8 +155,8 @@ export async function tailorSummary(baseSummary, jobDescriptionText, fetchFn = f
  * @returns {Promise<string>}
  */
 export async function generateCoverLetterBody(resumeText, jobContext, fetchFn = fetch) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured");
+  const config = getAiConfig();
+  if (!config) throw new Error(AI_NOT_CONFIGURED);
 
   const { title = "", company = "", ksas = "", acronyms = "" } = jobContext;
   const contextLines = [
@@ -151,7 +178,7 @@ export async function generateCoverLetterBody(resumeText, jobContext, fetchFn = 
   const user = `${contextLines}\n\nResume (plaintext):\n${(resumeText || "").slice(0, MAX_INPUT_CHARS)}`;
 
   const payload = {
-    model: DS_MODEL,
+    model: config.model,
     temperature: 0.28,
     messages: [
       { role: "system", content: system },
@@ -159,18 +186,15 @@ export async function generateCoverLetterBody(resumeText, jobContext, fetchFn = 
     ],
   };
 
-  const res = await fetchFn(DS_ENDPOINT, {
+  const res = await fetchFn(config.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: config.headers,
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`DeepSeek HTTP ${res.status}: ${body}`);
+    throw new Error(`AI HTTP ${res.status}: ${body}`);
   }
 
   const data = await res.json();
@@ -187,8 +211,8 @@ export async function generateCoverLetterBody(resumeText, jobContext, fetchFn = 
  * @returns {Promise<string[]>} Enhanced bullet points
  */
 export async function enhanceBullets(bullets, jobContext, fetchFn = fetch) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured");
+  const config = getAiConfig();
+  if (!config) throw new Error(AI_NOT_CONFIGURED);
 
   if (!Array.isArray(bullets) || bullets.length === 0) return bullets;
 
@@ -200,27 +224,24 @@ export async function enhanceBullets(bullets, jobContext, fetchFn = fetch) {
   const user = `Job context:\n${(jobContext || "").slice(0, 8000)}\n\nResume bullets (one per line):\n${bullets.join("\n")}`;
 
   const payload = {
-    model: DS_MODEL,
+    model: config.model,
     temperature: Math.min(DS_TEMPERATURE, 0.4),
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    response_format: { type: "json_object" },
   };
+  if (!config.useOllama) payload.response_format = { type: "json_object" };
 
-  const res = await fetchFn(DS_ENDPOINT, {
+  const res = await fetchFn(config.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: config.headers,
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`DeepSeek HTTP ${res.status}: ${body}`);
+    throw new Error(`AI HTTP ${res.status}: ${body}`);
   }
 
   const data = await res.json();
@@ -229,7 +250,7 @@ export async function enhanceBullets(bullets, jobContext, fetchFn = fetch) {
   try {
     obj = typeof raw === "string" ? JSON.parse(raw) : raw;
   } catch (e) {
-    throw new Error("DeepSeek returned non-JSON content");
+    throw new Error("AI returned non-JSON content");
   }
 
   const out = Array.isArray(obj.bullets)

@@ -282,7 +282,53 @@ export async function getProfile() {
     "/v1/users/profile",
     {},
     getStubMode() === "stub"
-      ? { profile: { fullName: "Stub User", email: "user@example.com" } }
+      ? { success: true, data: { profile: { fullName: "Stub User" }, email: "user@example.com", settings: {} } }
       : undefined
+  );
+}
+
+export async function updateProfile(profile: Record<string, unknown>) {
+  return request(
+    "/v1/users/profile",
+    { method: "PATCH", body: JSON.stringify({ profile }) },
+    getStubMode() === "stub" ? { success: true, data: { profile } } : undefined
+  );
+}
+
+export async function updateSettings(settings: Record<string, unknown>) {
+  return request(
+    "/v1/users/settings",
+    { method: "PUT", body: JSON.stringify(settings) },
+    getStubMode() === "stub" ? { success: true, data: { settings } } : undefined
+  );
+}
+
+export async function updateApiKeys(body: { deepseek?: string; reactiveResume?: string }) {
+  return request(
+    "/v1/users/api-keys",
+    { method: "PUT", body: JSON.stringify(body) },
+    getStubMode() === "stub" ? { success: true } : undefined
+  );
+}
+
+export async function deleteAccount() {
+  return request("/v1/users/account", { method: "DELETE" }, getStubMode() === "stub" ? { success: true } : undefined);
+}
+
+// Templates
+export async function listTemplates() {
+  return request(
+    "/v1/templates",
+    {},
+    getStubMode() === "stub" ? { success: true, data: [{ _id: "t1", name: "Default", isDefault: true }], total: 1 } : undefined
+  );
+}
+
+// Export PDF
+export async function exportPdf(body: { generatedDocumentId: string; templateId?: string; async?: boolean }) {
+  return request(
+    "/v1/export/pdf",
+    { method: "POST", body: JSON.stringify(body) },
+    getStubMode() === "stub" ? { success: true, data: { url: "#", expiresAt: new Date().toISOString() } } : undefined
   );
 }

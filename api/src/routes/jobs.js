@@ -201,7 +201,7 @@ router.post("/extract", async (req, res) => {
     if (err.name === "ZodError") {
       return res.status(400).json({ success: false, error: err.errors?.[0]?.message || "Validation error" });
     }
-    if (err.message?.includes("DEEPSEEK_API_KEY")) {
+    if (err.message?.includes("AI service not configured")) {
       return res.status(503).json({ success: false, error: "AI service not configured" });
     }
     res.status(500).json({ success: false, error: err.message });
@@ -243,7 +243,7 @@ router.post("/:id/extract", async (req, res) => {
       },
     });
   } catch (err) {
-    if (err.message?.includes("DEEPSEEK_API_KEY")) {
+    if (err.message?.includes("AI service not configured")) {
       return res.status(503).json({ success: false, error: "AI service not configured" });
     }
     res.status(500).json({ success: false, error: err.message });

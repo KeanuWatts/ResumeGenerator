@@ -22,6 +22,7 @@ Node.js REST API + Next.js web UI for generating tailored resumes and cover lett
    docker compose --profile pdf up -d
    ```
    Adds: Postgres for RR, browserless/chromium (printer), Reactive Resume at http://localhost:3002.
+   **Then:** open http://localhost:3002, sign in (or register), go to **Settings → API Keys**, create a key, and set `RXRESUME_API_KEY` in your `.env` (or `export RXRESUME_API_KEY=your-key`). Restart the API so it picks up the key: `docker compose up -d api`.
 
 4. **Provide DeepSeek API key** (required for AI: job extract, tailored summary, cover letter, bullet enhancement)
    - Set `DEEPSEEK_API_KEY` when starting:
@@ -59,7 +60,7 @@ Node.js REST API + Next.js web UI for generating tailored resumes and cover lett
 | `JWT_SECRET`, `REFRESH_TOKEN_SECRET` | Auth signing secrets (set in production) |
 | `RATE_LIMIT_REQUESTS_PER_MINUTE` | Per-user rate limit (default 200) |
 | `RABBITMQ_URL` | For async export jobs |
-| `RXRESUME_BASE_URL`, `RXRESUME_API_KEY` | Self-hosted Reactive Resume (PDF export). In Docker Compose, RR runs in Compose; in K8s, point at your existing RR. |
+| `RXRESUME_BASE_URL`, `RXRESUME_API_KEY` | Self-hosted Reactive Resume (PDF export). `RXRESUME_BASE_URL` is set in Compose. Create an API key in RR (Settings → API Keys) and set `RXRESUME_API_KEY` in `.env`. |
 | `AWS_*` / MinIO | S3-compatible storage for PDFs (Compose uses MinIO) |
 
 ## Kubernetes deployment

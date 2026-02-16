@@ -6,7 +6,7 @@ import { GeneratedDocument } from "../models/GeneratedDocument.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { recordAudit } from "../lib/audit.js";
-import { tailorSummary, generateCoverLetterBody, enhanceBullets } from "../services/ai.service.js";
+import { tailorSummary, generateCoverLetterBody, enhanceBullets, isAiConfigured } from "../services/ai.service.js";
 
 const router = Router();
 
@@ -53,7 +53,7 @@ router.post("/resume/preview", async (req, res) => {
     const ksaTerms = (job.ksas || []).map((k) => k.term).filter(Boolean);
     const matchedKsas = simpleKsaMatch(resumeText, ksaTerms);
     let tailoredSummaryText = resume.summary?.content || "";
-    if (process.env.DEEPSEEK_API_KEY && jobText) {
+    if (isAiConfigured() && jobText) {
       try {
         tailoredSummaryText = await tailorSummary(resume.summary?.content || "", jobText);
       } catch (_) {
@@ -75,6 +75,7 @@ router.post("/resume/preview", async (req, res) => {
     });
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ success: false, error: err.errors?.[0]?.message || "Validation error" });
+    if (err.message?.includes("AI service not configured")) return res.status(503).json({ success: false, error: "AI service not configured" });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -94,7 +95,7 @@ router.post("/cover-letter/preview", async (req, res) => {
       acronyms: (job.acronyms || []).map((a) => a.acronym).join(", "),
     };
     let letterBody = "";
-    if (process.env.DEEPSEEK_API_KEY) {
+    if (isAiConfigured()) {
       try {
         letterBody = await generateCoverLetterBody(resumeText, jobContext);
       } catch (err) {
@@ -122,7 +123,7 @@ router.post("/enhance-bullets", async (req, res) => {
     res.status(200).json({ success: true, data: { bullets: enhanced } });
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ success: false, error: err.errors?.[0]?.message || "Validation error" });
-    if (err.message?.includes("DEEPSEEK_API_KEY")) return res.status(503).json({ success: false, error: "AI service not configured" });
+    if (err.message?.includes("AI service not configured")) return res.status(503).json({ success: false, error: "AI service not configured" });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -142,7 +143,7 @@ router.post("/tailor-summary", async (req, res) => {
     res.status(200).json({ success: true, data: { tailoredSummary: tailored } });
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ success: false, error: err.errors?.[0]?.message || "Validation error" });
-    if (err.message?.includes("DEEPSEEK_API_KEY")) return res.status(503).json({ success: false, error: "AI service not configured" });
+    if (err.message?.includes("AI service not configured")) return res.status(503).json({ success: false, error: "AI service not configured" });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -165,7 +166,7 @@ router.post("/resume", idempotencyMiddleware("generate/resume"), async (req, res
     const overallScore = Math.round((matchedKsas.length / totalKsas) * 100);
 
     let tailoredSummaryText = resume.summary?.content || "";
-    if (process.env.DEEPSEEK_API_KEY && jobText) {
+    if (isAiConfigured() && jobText) {
       try {
         tailoredSummaryText = await tailorSummary(resume.summary?.content || "", jobText);
       } catch (_) {
@@ -242,7 +243,7 @@ router.post("/cover-letter", idempotencyMiddleware("generate/cover-letter"), asy
     };
 
     let letterBody = "";
-    if (process.env.DEEPSEEK_API_KEY) {
+    if (isAiConfigured()) {
       try {
         letterBody = await generateCoverLetterBody(resumeText, jobContext);
       } catch (err) {

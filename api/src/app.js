@@ -14,6 +14,14 @@ import exportRoutes from "./routes/export.js";
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`);
+  });
+  next();
+});
 app.use(rateLimitMiddleware);
 
 const API_VERSION = process.env.API_VERSION || "v1";

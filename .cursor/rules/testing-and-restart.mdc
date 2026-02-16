@@ -1,0 +1,22 @@
+---
+description: Never ask user to restart; agent restarts servers and tests changes
+alwaysApply: true
+---
+
+# Testing and Restart Workflow
+
+## Do not tell the user to restart
+
+- **Never** instruct the user to "restart the server", "rebuild the app", "run the tests", or similar.
+- You are responsible for running servers, builds, and tests as part of implementing the request.
+
+## After making changes
+
+- **Always** restart the relevant server(s) and run any needed tests yourself after implementing a change.
+- Verify that your changes work (e.g. hit the API, load the page, run the test suite) before considering the task done.
+- If something fails, fix it and re-verify; do not hand off broken state to the user.
+
+## Iterative work without testing
+
+- If the user explicitly says they want iterative changes without testing (e.g. "just make the change, don't run tests" or "I'll test myself"), you may skip restart and verification for that round.
+- Otherwise, assume you should do due diligence: restart, test, and confirm the request was implemented correctly.

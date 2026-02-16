@@ -50,15 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") window.location.href = "/login";
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    setApiAuth({
-      getAccessToken: () => getStoredAccessToken(),
-      getRefreshToken: () => getStoredRefreshToken(),
-      setTokens,
-      onUnauthorized,
-    });
-  }, [hydrated, setTokens, onUnauthorized]);
+  // Register API auth callbacks on every render so the API client always has
+  // access to the latest tokens (from localStorage) before any child request runs.
+  setApiAuth({
+    getAccessToken: () => getStoredAccessToken(),
+    getRefreshToken: () => getStoredRefreshToken(),
+    setTokens,
+    onUnauthorized,
+  });
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -5,9 +5,11 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 const bucket = process.env.AWS_S3_BUCKET || "resumegen-exports";
 const region = process.env.AWS_REGION || "us-east-1";
 const endpoint = process.env.AWS_ENDPOINT || undefined;
+/** When set (e.g. http://localhost:9000), presigned URLs use this so the browser can download. */
+const publicEndpoint = process.env.AWS_PUBLIC_ENDPOINT || undefined;
 const expiresIn = 7 * 24 * 60 * 60;
 
-function getClient() {
+function getClient(usePublicEndpoint = false) {
   const config = {
     region,
     credentials:
@@ -18,8 +20,9 @@ function getClient() {
           }
         : undefined,
   };
-  if (endpoint) config.forcePathStyle = true;
-  if (endpoint) config.endpoint = endpoint;
+  const ep = usePublicEndpoint && publicEndpoint ? publicEndpoint : endpoint;
+  if (ep) config.forcePathStyle = true;
+  if (ep) config.endpoint = ep;
   return new S3Client(config);
 }
 
@@ -47,7 +50,7 @@ export async function ensureBucket() {
  * @returns {Promise<{ url: string, key: string, expiresAt: Date }>}
  */
 export async function uploadPdf(key, body, contentType = "application/pdf") {
-  const client = getClient();
+  const client = getClient(false);
   await ensureBucket();
   await client.send(
     new PutObjectCommand({
@@ -58,8 +61,9 @@ export async function uploadPdf(key, body, contentType = "application/pdf") {
     })
   );
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
+  const signClient = publicEndpoint ? getClient(true) : client;
   const url = await getSignedUrl(
-    client,
+    signClient,
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn }
   );

@@ -61,14 +61,17 @@ describe("Jobs CRUD and extract", () => {
     assert.strictEqual(res.body.title, "Senior Dev");
   });
 
-  it("POST /v1/jobs/extract without API key returns 503 or 500", async () => {
-    const prev = process.env.DEEPSEEK_API_KEY;
+  it("POST /v1/jobs/extract without AI configured returns 503 or 500", async () => {
+    const prevKey = process.env.DEEPSEEK_API_KEY;
+    const prevOllama = process.env.OLLAMA_BASE_URL;
     delete process.env.DEEPSEEK_API_KEY;
+    delete process.env.OLLAMA_BASE_URL;
     const res = await request(app)
       .post("/v1/jobs/extract")
       .set("Authorization", `Bearer ${token}`)
       .send({ rawText: "Senior Engineer at Acme. Python and AWS required." });
-    if (prev !== undefined) process.env.DEEPSEEK_API_KEY = prev;
+    if (prevKey !== undefined) process.env.DEEPSEEK_API_KEY = prevKey;
+    if (prevOllama !== undefined) process.env.OLLAMA_BASE_URL = prevOllama;
     assert(res.status === 503 || res.status === 500);
   });
 

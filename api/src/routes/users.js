@@ -23,7 +23,7 @@ router.get("/profile", async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-passwordHash -refreshTokens -apiKeys");
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
-    res.status(200).json({ success: true, data: { profile: user.profile } });
+    res.status(200).json({ success: true, data: { profile: user.profile, email: user.email, settings: user.settings } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

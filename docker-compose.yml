@@ -1,5 +1,5 @@
-# Default: api, web, mongodb, rabbitmq, minio (no Chromium).
-# Full stack with PDF export: docker compose --profile pdf up -d
+# Default: api, web, mongodb, rabbitmq, minio, ollama, printer (PDF via browserless).
+# Add Reactive Resume: docker compose --profile pdf up -d
 services:
   mongodb:
     image: mongo:7
@@ -31,6 +31,22 @@ services:
     volumes:
       - minio_data:/data
 
+  # Local LLM (DeepSeek-compatible). Pull model after first start: docker compose exec ollama ollama pull deepseek-llm
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Optional: keep GPU if you have nvidia-docker
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   postgres_rr:
     profiles: ["pdf"]
     image: postgres:16-alpine
@@ -47,17 +63,18 @@ services:
       retries: 5
 
   printer:
-    profiles: ["pdf"]
     image: ghcr.io/browserless/chromium:latest
     environment:
       QUEUED: 10
       HEALTH: "true"
       CONCURRENT: 5
+      TOKEN: ${PDF_PRINTER_TOKEN:-resumegen-pdf}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 15s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
 
   reactive-resume:
     profiles: ["pdf"]
@@ -95,10 +112,16 @@ services:
       - REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET:-change-me-in-production}
       - RATE_LIMIT_REQUESTS_PER_MINUTE=200
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      # PDF export: built-in path uses printer (browserless). Optional: RR for fancier templates — set RXRESUME_API_KEY (create at http://localhost:3002 Settings → API Keys)
+      - PDF_PRINTER_URL=http://printer:3000
+      - PDF_PRINTER_TOKEN=${PDF_PRINTER_TOKEN:-resumegen-pdf}
       - RXRESUME_BASE_URL=http://reactive-resume:3000
       - RXRESUME_API_KEY=${RXRESUME_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-llm}
       - AWS_ENDPOINT=http://minio:9000
+      - AWS_PUBLIC_ENDPOINT=http://localhost:9000
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - AWS_S3_BUCKET=resumegen-exports
@@ -109,6 +132,10 @@ services:
       rabbitmq:
         condition: service_healthy
       minio:
+        condition: service_started
+      ollama:
+        condition: service_started
+      printer:
         condition: service_started
 
   web:
@@ -127,4 +154,5 @@ services:
 volumes:
   mongodb_data: {}
   minio_data: {}
+  ollama_data: {}
   postgres_rr_data: {}
